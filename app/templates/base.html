@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}휴가 관리 시스템{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <h1><a href="{{ url_for('leave.dashboard') }}">휴가 관리 시스템</a></h1>
+            <nav class="main-nav">
+                <a href="{{ url_for('leave.dashboard') }}">대시보드</a>
+                <a href="{{ url_for('leave.request_leave') }}">휴가신청</a>
+                <a href="{{ url_for('leave.history') }}">신청내역</a>
+                <a href="{{ url_for('leave.approvals') }}">승인처리</a>
+                <a href="{{ url_for('settlement.settlement_list') }}">퇴사정산</a>
+                <a href="{{ url_for('admin.employees_overview') }}">전체현황</a>
+                <a href="{{ url_for('admin.rules_list') }}">규칙설정</a>
+                <a href="{{ url_for('employees.list_employees') }}">인사카드</a>
+            </nav>
+            <div class="current-user">
+                {% if g.current_employee %}
+                    현재 사용자: <strong>{{ g.current_employee.name }}</strong>
+                {% else %}
+                    사용자 미선택
+                {% endif %}
+                <a href="{{ url_for('leave.whoami') }}">전환</a>
+            </div>
+        </div>
+    </header>
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

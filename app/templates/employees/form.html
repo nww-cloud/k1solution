@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ '인사카드 수정' if employee else '인사카드 등록' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ '인사카드 수정' if employee else '인사카드 등록' }}</h2>
+</div>
+
+<form method="post" class="card-form">
+    <div class="form-row">
+        <label for="name">이름 *</label>
+        <input type="text" id="name" name="name" value="{{ employee.name if employee else '' }}" required>
+    </div>
+    <div class="form-row">
+        <label for="department">부서</label>
+        <input type="text" id="department" name="department" value="{{ employee.department if employee else '' }}">
+    </div>
+    <div class="form-row">
+        <label for="position">직급</label>
+        <input type="text" id="position" name="position" value="{{ employee.position if employee else '' }}">
+    </div>
+    <div class="form-row">
+        <label for="hire_date">입사일 *</label>
+        <input type="date" id="hire_date" name="hire_date"
+               value="{{ employee.hire_date if employee else '' }}" required>
+    </div>
+    <div class="form-row">
+        <label for="resign_date">퇴사일</label>
+        <input type="date" id="resign_date" name="resign_date"
+               value="{{ employee.resign_date if employee and employee.resign_date else '' }}">
+    </div>
+    <div class="form-row">
+        <label for="status">상태</label>
+        <select id="status" name="status">
+            <option value="재직" {% if not employee or employee.status == '재직' %}selected{% endif %}>재직</option>
+            <option value="퇴사" {% if employee and employee.status == '퇴사' %}selected{% endif %}>퇴사</option>
+        </select>
+    </div>
+    <div class="form-actions">
+        <a class="btn" href="{{ url_for('employees.list_employees') }}">취소</a>
+        <button type="submit" class="btn btn-primary">저장</button>
+    </div>
+</form>
+{% endblock %}

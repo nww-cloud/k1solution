@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}퇴사 정산{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>퇴사 정산 - 대상자 선택</h2>
+</div>
+<p class="hint">재직 중인 직원을 선택하여 퇴사 정산을 처리합니다.</p>
+
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>사번</th>
+            <th>이름</th>
+            <th>부서</th>
+            <th>직급</th>
+            <th>입사일</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in employees %}
+        <tr>
+            <td data-label="사번">{{ e.emp_id }}</td>
+            <td data-label="이름">{{ e.name }}</td>
+            <td data-label="부서">{{ e.department or '-' }}</td>
+            <td data-label="직급">{{ e.position or '-' }}</td>
+            <td data-label="입사일">{{ e.hire_date }}</td>
+            <td data-label="">
+                <a class="btn btn-small btn-primary" href="{{ url_for('settlement.settlement_detail', emp_id=e.emp_id) }}">
+                    정산 처리
+                </a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6" class="empty-row">재직 중인 직원이 없습니다.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

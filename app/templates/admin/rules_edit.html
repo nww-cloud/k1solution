@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}규칙 수정{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ rule.rule_type }} 규칙 수정</h2>
+    <a class="btn" href="{{ url_for('admin.rules_list') }}">목록으로</a>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="hint">
+    {% if rule.rule_type == '연차가산' %}
+    condition 예시: <code>{"interval_years": 3, "days_per_interval": 1}</code>
+    (몇 년마다 며칠 가산할지) / value 예시: <code>{"max_days": 25}</code> (연차 총량 상한)
+    <br>이 값은 연차 부여 계산에 실제로 사용됩니다.
+    {% elif rule.rule_type == '근속특별휴가' %}
+    condition/value는 현재 참고용 설명입니다. 실제 마일스톤(5/10/15/20년차 -> 3/5/8/10일)은
+    코드에 고정되어 있으며, 이 화면의 값은 계산에 직접 반영되지 않습니다.
+    {% elif rule.rule_type == '법정재정산' %}
+    아직 근로기준법 조항이 확정되지 않아(TODO) 이 값은 계산 로직에 반영되지 않습니다.
+    {% endif %}
+</div>
+
+<form method="post" class="card-form">
+    <div class="form-row">
+        <label>유형</label>
+        <input type="text" value="{{ rule.rule_type }}" disabled>
+    </div>
+    <div class="form-row">
+        <label for="condition">조건(condition)</label>
+        <textarea id="condition" name="condition" rows="3">{{ rule.condition or '' }}</textarea>
+    </div>
+    <div class="form-row">
+        <label for="value">값(value)</label>
+        <textarea id="value" name="value" rows="3">{{ rule.value or '' }}</textarea>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">저장</button>
+    </div>
+</form>
+{% endblock %}

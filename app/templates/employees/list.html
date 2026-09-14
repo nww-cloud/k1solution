@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}인사카드 목록{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>인사카드 목록</h2>
+    <a class="btn btn-primary" href="{{ url_for('employees.new_employee') }}">+ 신규 등록</a>
+</div>
+
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>사번</th>
+            <th>이름</th>
+            <th>부서</th>
+            <th>직급</th>
+            <th>입사일</th>
+            <th>퇴사일</th>
+            <th>상태</th>
+            <th>연차 잔여</th>
+            <th>근속휴가 잔여</th>
+            <th>관리</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in employees %}
+        {% set summary = leave_summaries.get(e.emp_id, {}) %}
+        <tr>
+            <td data-label="사번">{{ e.emp_id }}</td>
+            <td data-label="이름">{{ e.name }}</td>
+            <td data-label="부서">{{ e.department or '-' }}</td>
+            <td data-label="직급">{{ e.position or '-' }}</td>
+            <td data-label="입사일">{{ e.hire_date }}</td>
+            <td data-label="퇴사일">{{ e.resign_date or '-' }}</td>
+            <td data-label="상태">
+                <span class="badge {% if e.status == '재직' %}badge-active{% else %}badge-resigned{% endif %}">
+                    {{ e.status }}
+                </span>
+            </td>
+            <td data-label="연차 잔여">{{ summary.get('연차', {}).get('remaining', 0) }}일</td>
+            <td data-label="근속휴가 잔여">{{ summary.get('근속특별휴가', {}).get('remaining', 0) }}일</td>
+            <td data-label="관리" class="actions">
+                <a class="btn btn-small" href="{{ url_for('employees.edit_employee', emp_id=e.emp_id) }}">수정</a>
+                <form method="post" action="{{ url_for('employees.delete_employee', emp_id=e.emp_id) }}"
+                      onsubmit="return confirm('{{ e.name }} 인사카드를 삭제하시겠습니까?');" class="inline-form">
+                    <button type="submit" class="btn btn-small btn-danger">삭제</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="10" class="empty-row">등록된 직원이 없습니다.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}신청 내역{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ employee.name }}님의 신청 내역</h2>
+    <a class="btn btn-primary" href="{{ url_for('leave.request_leave') }}">+ 휴가 신청</a>
+</div>
+
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>신청일</th>
+            <th>기간</th>
+            <th>일수</th>
+            <th>상태</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in requests %}
+        {% set badge_class = {'신청': 'badge-pending', '승인': 'badge-active', '반려': 'badge-rejected', '취소': 'badge-resigned'}.get(r.status, '') %}
+        <tr>
+            <td data-label="신청일">{{ r.request_date }}</td>
+            <td data-label="기간">{{ r.start_date }} ~ {{ r.end_date }}</td>
+            <td data-label="일수">{{ r.days_used }}일</td>
+            <td data-label="상태"><span class="badge {{ badge_class }}">{{ r.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4" class="empty-row">신청 내역이 없습니다.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

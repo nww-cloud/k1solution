@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}휴가 신청{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>휴가 신청</h2>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" class="card-form">
+    <div class="form-row">
+        <label for="start_date">시작일 *</label>
+        <input type="date" id="start_date" name="start_date" required>
+    </div>
+    <div class="form-row">
+        <label for="end_date">종료일 *</label>
+        <input type="date" id="end_date" name="end_date" required>
+    </div>
+    <div class="form-actions">
+        <a class="btn" href="{{ url_for('leave.dashboard') }}">취소</a>
+        <button type="submit" class="btn btn-primary">신청</button>
+    </div>
+</form>
+{% endblock %}

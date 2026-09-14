@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}퇴사 정산 처리{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ employee.name }}님 퇴사 정산</h2>
+    <a class="btn" href="{{ url_for('settlement.settlement_list') }}">목록으로</a>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="summary-card" style="max-width:480px; margin-bottom:24px;">
+    <h3>인사 정보</h3>
+    <dl>
+        <dt>사번</dt><dd>{{ employee.emp_id }}</dd>
+        <dt>부서/직급</dt><dd>{{ employee.department or '-' }} / {{ employee.position or '-' }}</dd>
+        <dt>입사일</dt><dd>{{ employee.hire_date }}</dd>
+        <dt>상태</dt>
+        <dd>
+            <span class="badge {{ 'badge-resigned' if employee.status == '퇴사' else 'badge-active' }}">
+                {{ employee.status }}
+            </span>
+        </dd>
+        {% if employee.status == '퇴사' %}
+        <dt>퇴사일</dt><dd>{{ employee.resign_date }}</dd>
+        {% endif %}
+    </dl>
+</div>
+
+{% if settlement %}
+<div class="summary-card" style="max-width:480px;">
+    <h3>정산 결과</h3>
+    <dl>
+        <dt>회사 기준 부여량(연차)</dt><dd>{{ settlement.company_basis_days }}일</dd>
+        <dt>법정 기준 발생량</dt><dd>{{ settlement.legal_basis_days }}일</dd>
+        <dt>초과 사용일수</dt><dd>{{ settlement.excess_used_days }}일</dd>
+        <dt>미사용 잔여일수</dt><dd class="remaining">{{ settlement.unused_remaining_days }}일</dd>
+        <dt>근속특별휴가 잔여(참고)</dt><dd>{{ service_leave_remaining }}일</dd>
+        <dt>정산일</dt><dd>{{ settlement.settlement_date }}</dd>
+    </dl>
+</div>
+<p class="hint">
+    법정 기준 발생량은 근로기준법 조항 확정 전까지 임시 값(0)입니다.
+    조항이 확정되면 재계산 로직이 반영될 예정입니다.
+</p>
+{% else %}
+<form method="post" class="card-form">
+    <div class="form-row">
+        <label for="resign_date">퇴사일 *</label>
+        <input type="date" id="resign_date" name="resign_date" required>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">정산 처리</button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

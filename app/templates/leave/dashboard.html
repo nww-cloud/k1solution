@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}대시보드{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ employee.name }}님의 휴가 현황</h2>
+    <a class="btn btn-primary" href="{{ url_for('leave.request_leave') }}">+ 휴가 신청</a>
+</div>
+
+<div class="summary-grid">
+    {% for grant_type, data in summary.items() %}
+    <div class="summary-card">
+        <h3>{{ grant_type }}</h3>
+        <dl>
+            <dt>부여</dt><dd>{{ data.granted }}일</dd>
+            <dt>사용</dt><dd>{{ data.used }}일</dd>
+            <dt>잔여</dt><dd class="remaining">{{ data.remaining }}일</dd>
+        </dl>
+    </div>
+    {% else %}
+    <p class="empty-row">보유 중인 유효한 휴가 항목이 없습니다.</p>
+    {% endfor %}
+</div>
+{% endblock %}

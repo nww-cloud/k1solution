@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}휴가 규칙 설정{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>휴가 규칙 (leave_rules)</h2>
+</div>
+<p class="hint">
+    연차가산 구간/상한, 근속특별휴가 조건 등 설정값을 조회하고 수정합니다.
+    "TODO"로 표시된 항목은 아직 기준이 확정되지 않아 계산 로직이 임시값을 사용 중입니다.
+</p>
+
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>유형</th>
+            <th>조건(condition)</th>
+            <th>값(value)</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for rule in rules %}
+        <tr>
+            <td data-label="ID">{{ rule.rule_id }}</td>
+            <td data-label="유형">{{ rule.rule_type }}</td>
+            <td data-label="조건(condition)"><code>{{ rule.condition }}</code></td>
+            <td data-label="값(value)"><code>{{ rule.value }}</code></td>
+            <td data-label="">
+                <a class="btn btn-small btn-primary" href="{{ url_for('admin.rules_edit', rule_id=rule.rule_id) }}">수정</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5" class="empty-row">등록된 규칙이 없습니다.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

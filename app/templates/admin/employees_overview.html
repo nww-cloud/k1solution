@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}전체 현황{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>전 사원 잔여일수 현황</h2>
+</div>
+
+<form method="get" class="filter-bar">
+    <div class="filter-field">
+        <label for="department">부서</label>
+        <select id="department" name="department" onchange="this.form.submit()">
+            <option value="">전체</option>
+            {% for d in departments %}
+            <option value="{{ d }}" {% if d == selected_department %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <label for="position">직급</label>
+        <select id="position" name="position" onchange="this.form.submit()">
+            <option value="">전체</option>
+            {% for p in positions %}
+            <option value="{{ p }}" {% if p == selected_position %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if selected_department or selected_position %}
+    <a class="btn btn-small" href="{{ url_for('admin.employees_overview') }}">필터 초기화</a>
+    {% endif %}
+</form>
+
+{% if upcoming_milestones %}
+<div class="notice-panel">
+    <h3>근속특별휴가 발생 예정자 (30일 이내)</h3>
+    <ul>
+        {% for item in upcoming_milestones %}
+        <li>
+            <strong>{{ item.employee.name }}</strong> ({{ item.employee.department or '-' }}) -
+            {{ item.milestone_years }}년차 도달 예정일 {{ item.anniversary_date }}
+            (부여 예정 {{ item.granted_days }}일)
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>사번</th>
+            <th>이름</th>
+            <th>부서</th>
+            <th>직급</th>
+            <th>연차 잔여</th>
+            <th>근속휴가 잔여</th>
+            <th>비고</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr class="{{ 'row-highlight' if row.expiring_service_grants else '' }}">
+            <td data-label="사번">{{ row.employee.emp_id }}</td>
+            <td data-label="이름">{{ row.employee.name }}</td>
+            <td data-label="부서">{{ row.employee.department or '-' }}</td>
+            <td data-label="직급">{{ row.employee.position or '-' }}</td>
+            <td data-label="연차 잔여">{{ row.annual_remaining }}일</td>
+            <td data-label="근속휴가 잔여">{{ row.service_remaining }}일</td>
+            <td data-label="비고">
+                {% if row.expiring_service_grants %}
+                <span class="badge badge-pending">근속휴가 만료 임박</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7" class="empty-row">조건에 맞는 재직자가 없습니다.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

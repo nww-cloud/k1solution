@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}승인 처리{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>대기 중인 휴가 신청</h2>
+</div>
+
+<div class="table-wrap">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>신청자</th>
+            <th>기간</th>
+            <th>일수</th>
+            <th>신청일</th>
+            <th>처리</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in requests %}
+        <tr>
+            <td data-label="신청자">{{ r.employee.name }} ({{ r.emp_id }})</td>
+            <td data-label="기간">{{ r.start_date }} ~ {{ r.end_date }}</td>
+            <td data-label="일수">{{ r.days_used }}일</td>
+            <td data-label="신청일">{{ r.request_date }}</td>
+            <td data-label="처리" class="actions">
+                {% if r.emp_id == approver.emp_id %}
+                <span class="hint">본인 신청 건은 승인/반려할 수 없습니다.</span>
+                {% else %}
+                <form method="post" action="{{ url_for('leave.approve', request_id=r.request_id) }}" class="inline-form">
+                    <button type="submit" class="btn btn-small btn-primary">승인</button>
+                </form>
+                <form method="post" action="{{ url_for('leave.reject', request_id=r.request_id) }}" class="inline-form">
+                    <button type="submit" class="btn btn-small btn-danger">반려</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5" class="empty-row">대기 중인 신청이 없습니다.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}
