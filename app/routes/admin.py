@@ -1,12 +1,17 @@
 import json
 
-from flask import Blueprint, redirect, render_template, request, url_for
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.extensions import db
 from app.leave_service import get_expiring_grants, get_leave_summary
 from app.models import Employee, LeaveRule
 from app.routes.leave import get_current_employee
-from app.rules_engine import get_next_service_leave_milestone, is_service_leave_milestone_upcoming
+from app.rules_engine import (
+    get_next_service_leave_milestone,
+    is_service_leave_milestone_upcoming,
+    run_annual_leave_grant_batch,
+    run_service_leave_grant_batch,
+)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -77,6 +82,30 @@ def employees_overview():
         selected_department=department,
         selected_position=position,
     )
+
+
+@admin_bp.route("/admin/run-leave-batch", methods=["POST"])
+def run_leave_batch():
+    """재직 중인 전 직원에게 연차/근속특별휴가를 일괄 부여한다 (스케줄러 대체용 수동 실행).
+
+    이미 부여된 항목은 건너뛰므로 몇 번을 눌러도 중복 부여되지 않는다.
+    """
+    processor = get_current_employee()
+    if not processor:
+        return redirect(url_for("leave.whoami"))
+
+    annual_results = run_annual_leave_grant_batch()
+    service_results = run_service_leave_grant_batch()
+    db.session.commit()
+
+    annual_granted = sum(1 for r in annual_results if not r["skipped"])
+    service_granted = sum(1 for r in service_results if not r["skipped"])
+    flash(
+        f"연차 {annual_granted}명 신규 부여, 근속특별휴가 {service_granted}명 신규 부여 "
+        f"(이미 부여된 대상은 건너뜀).",
+        "success",
+    )
+    return redirect(url_for("admin.employees_overview"))
 
 
 # ---------------------------------------------------------------------------

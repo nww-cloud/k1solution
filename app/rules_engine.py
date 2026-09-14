@@ -10,7 +10,7 @@ import json
 from datetime import date
 
 from app.extensions import db
-from app.models import LeaveGrant, LeaveRule
+from app.models import Employee, LeaveGrant, LeaveRule
 
 
 def get_rules(rule_type=None):
@@ -149,6 +149,38 @@ def grant_annual_leave(employee, grant_year, rule=None, session=None):
     return grant
 
 
+def run_annual_leave_grant_batch(grant_year=None, rule=None, session=None):
+    """재직 중인 전 직원에게 grant_year 연차를 일괄 부여한다 (관리자 수동 실행용 배치).
+
+    아직 스케줄러가 없으므로 연초에 관리자가 한 번 실행한다고 가정한다.
+    이미 해당 연도분이 부여된 직원은 건너뛰어 중복 부여를 방지한다(반복 실행 안전).
+    반환값: [{"employee", "granted_days", "skipped"}, ...]
+    """
+    session = session or db.session
+    grant_year = grant_year or date.today().year
+    rule = rule or get_rule("연차가산")
+
+    results = []
+    employees = Employee.query.filter_by(status="재직").order_by(Employee.emp_id).all()
+    for employee in employees:
+        existing = (
+            LeaveGrant.query.filter_by(emp_id=employee.emp_id, grant_type="연차")
+            .filter(LeaveGrant.expire_date == date(grant_year, 12, 31))
+            .first()
+        )
+        if existing:
+            results.append(
+                {"employee": employee, "granted_days": existing.granted_days, "skipped": True}
+            )
+            continue
+
+        grant = grant_annual_leave(employee, grant_year, rule=rule, session=session)
+        results.append(
+            {"employee": employee, "granted_days": grant.granted_days, "skipped": False}
+        )
+    return results
+
+
 # ---------------------------------------------------------------------------
 # 근속 특별휴가 로직 (입사기념일 기준)
 # ---------------------------------------------------------------------------
@@ -202,6 +234,58 @@ def grant_service_special_leave(employee, milestone_years, session=None):
     )
     session.add(new_grant)
     return new_grant
+
+
+def run_service_leave_grant_batch(as_of_date=None, session=None):
+    """재직 중인 전 직원에게 현재 시점 기준 도달한 근속특별휴가를 일괄 부여한다.
+
+    각 직원은 실제 도달한 마일스톤 중 가장 높은 것 하나만 대상으로 삼는다
+    (grant_service_special_leave가 이전 단계 건을 자동으로 소멸 처리하므로
+    중간 단계를 건너뛰어도 최종 상태는 동일하다). 이미 해당 마일스톤 건이
+    있으면 건너뛰어 중복 부여를 방지한다(반복 실행 안전).
+    반환값: [{"employee", "milestone_years", "granted_days", "skipped"}, ...]
+    """
+    session = session or db.session
+    as_of_date = as_of_date or date.today()
+
+    results = []
+    employees = Employee.query.filter_by(status="재직").order_by(Employee.emp_id).all()
+    for employee in employees:
+        service_years = get_service_years(employee.hire_date, as_of_date)
+        applicable = [m for m in sorted(SERVICE_LEAVE_MILESTONES) if m <= service_years]
+        if not applicable:
+            results.append(
+                {"employee": employee, "milestone_years": None, "granted_days": None, "skipped": True}
+            )
+            continue
+
+        highest = max(applicable)
+        existing = LeaveGrant.query.filter_by(
+            emp_id=employee.emp_id,
+            grant_type="근속특별휴가",
+            source_rule=f"근속특별휴가 {highest}년차",
+        ).first()
+        if existing:
+            results.append(
+                {
+                    "employee": employee,
+                    "milestone_years": highest,
+                    "granted_days": existing.granted_days,
+                    "skipped": True,
+                }
+            )
+            continue
+
+        grant = grant_service_special_leave(employee, highest, session=session)
+        results.append(
+            {
+                "employee": employee,
+                "milestone_years": highest,
+                "granted_days": grant.granted_days,
+                "skipped": False,
+            }
+        )
+    return results
 
 
 def get_next_service_leave_milestone(employee, as_of_date=None):

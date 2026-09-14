@@ -137,3 +137,38 @@ def test_rules_edit_rejects_invalid_json(make_employee, client, login_as):
 
     unchanged_rule = get_rule("연차가산")
     assert unchanged_rule.condition != "{이건 JSON이 아님"
+
+
+# ---------------------------------------------------------------------------
+# 휴가 일괄 부여 실행 버튼 (/admin/run-leave-batch)
+# ---------------------------------------------------------------------------
+
+
+def test_run_leave_batch_grants_annual_and_service_leave_and_flashes_summary(
+    make_employee, client, login_as
+):
+    viewer = make_employee(hire_date=date(2015, 1, 1), name="배치실행자")
+    target = make_employee(hire_date=date(2018, 1, 1), name="배치대상")  # 근속 6년 -> 5년차 대상
+
+    login_as(viewer)
+    resp = client.post("/admin/run-leave-batch", follow_redirects=True)
+
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "신규 부여" in body
+
+    resp = client.get("/admin/employees")
+    body = resp.data.decode("utf-8")
+    assert "배치대상" in body
+
+
+def test_run_leave_batch_is_safe_to_click_twice(make_employee, client, login_as):
+    viewer = make_employee(hire_date=date(2015, 1, 1), name="배치실행자2")
+    make_employee(hire_date=date(2018, 1, 1), name="배치대상2")
+
+    login_as(viewer)
+    client.post("/admin/run-leave-batch", follow_redirects=False)
+    resp = client.post("/admin/run-leave-batch", follow_redirects=True)
+
+    body = resp.data.decode("utf-8")
+    assert "0명 신규 부여" in body or "연차 0명" in body
