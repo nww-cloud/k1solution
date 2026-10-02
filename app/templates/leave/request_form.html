@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %}휴가 신청{% endblock %}
+{% block main_class %}dash-wide{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
 {% block content %}
+<div class="dash-scope">
 <div class="page-header">
     <h2>휴가 신청</h2>
 </div>
@@ -9,12 +14,32 @@
 <div class="alert alert-error">{{ error }}</div>
 {% endif %}
 
-<form method="post" class="card-form" id="requestForm">
-    {% include "leave/_request_dialog_content.html" %}
-    <div class="form-actions">
-        <a class="btn" href="{{ url_for('leave.dashboard') }}">취소</a>
-        <button type="submit" class="btn btn-primary" id="submitRequestBtn">신청</button>
+<form method="post" id="requestForm" style="max-width:1120px;">
+    <div class="dash-request-layout" style="border:1px solid var(--dash-line); border-radius:16px; background:#fff;">
+        <div class="dash-request-calendar">
+            <div class="dash-picker-status">
+                <span class="dash-picker-badge" id="pickerBadge">시작일 선택 중</span>
+                <button type="button" class="dash-range-btn" id="rangeModeBtn">연속 휴가로 선택</button>
+            </div>
+            <div class="dash-mini-cal-head">
+                <button type="button" class="dash-cal-nav" id="miniPrev" aria-label="이전달">‹</button>
+                <span id="miniMonthLabel"></span>
+                <button type="button" class="dash-cal-nav" id="miniNext" aria-label="다음달">›</button>
+            </div>
+            <table class="dash-mini-cal-table">
+                <thead><tr><th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th></tr></thead>
+                <tbody id="miniCalBody"></tbody>
+            </table>
+        </div>
+        <div class="dash-request-form-col">
+            {% include "leave/_request_dialog_content.html" %}
+            <div class="dash-form-actions">
+                <a class="dash-btn" href="{{ url_for('leave.dashboard') }}">취소</a>
+                <button type="submit" class="dash-btn dash-btn-primary" id="submitRequestBtn">신청</button>
+            </div>
+        </div>
     </div>
 </form>
+</div>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
