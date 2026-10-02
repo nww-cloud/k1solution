@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 from app.models import Employee, LeaveGrant, LeaveRequest, ResignationSettlement
 from app.rules_engine import grant_annual_leave
+from conftest import next_monday_on_or_after
 
 TODAY = date.today()
 
@@ -65,8 +66,8 @@ def test_full_lifecycle_from_hire_to_resignation_settlement(client, login_as, se
     assert resp.status_code == 200
     assert "연차".encode("utf-8") in resp.data
 
-    request_start = TODAY + timedelta(days=5)
-    request_end = TODAY + timedelta(days=6)  # 2일
+    request_start = next_monday_on_or_after(TODAY + timedelta(days=5))
+    request_end = request_start + timedelta(days=1)  # 월~화 2일(평일)
     resp = client.post(
         "/leave/request",
         data={"start_date": request_start.isoformat(), "end_date": request_end.isoformat()},

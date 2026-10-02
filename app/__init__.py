@@ -31,9 +31,11 @@ def create_app(config_object="config.Config"):
 
     with app.app_context():
         from app import models  # noqa: F401
+        from app.migrations import ensure_schema
         from app.seed import seed_leave_rules
 
         db.create_all()
+        ensure_schema(db)
         seed_leave_rules()
 
     return app

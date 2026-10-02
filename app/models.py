@@ -67,6 +67,9 @@ class LeaveRequest(db.Model):
     days_used = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(10), nullable=False, default="신청")  # 신청/승인/반려/취소
     approver_id = db.Column(db.Integer, db.ForeignKey("employees.emp_id"), nullable=True)
+    kind = db.Column(db.String(20), nullable=False, default="연차")  # 연차 / 근속특별휴가
+    unit = db.Column(db.Float, nullable=False, default=1.0)  # 1 / 0.5 / 0.25 / 0.75
+    unit_label = db.Column(db.String(20), nullable=False, default="종일")
 
     employee = db.relationship(
         "Employee", back_populates="leave_requests", foreign_keys=[emp_id]

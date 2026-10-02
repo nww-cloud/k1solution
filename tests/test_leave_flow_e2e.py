@@ -9,6 +9,7 @@ from datetime import date, timedelta
 
 from app.leave_service import get_leave_summary
 from app.models import LeaveGrant, LeaveRequest
+from conftest import next_monday_on_or_after as _next_monday_on_or_after
 
 TODAY = date.today()
 GRANT_DATE = TODAY - timedelta(days=30)
@@ -46,9 +47,9 @@ def test_full_scenario_request_approve_reject_and_balance_deduction(
     assert resp.status_code == 200
     assert "휴가 신청".encode("utf-8") in resp.data
 
-    # 2) 5일 신청 -> 신청 성공, 내역 페이지로 리다이렉트
-    req1_start = TODAY + timedelta(days=5)
-    req1_end = TODAY + timedelta(days=9)  # 5일
+    # 2) 5일(평일) 신청 -> 신청 성공, 내역 페이지로 리다이렉트
+    req1_start = _next_monday_on_or_after(TODAY + timedelta(days=5))
+    req1_end = req1_start + timedelta(days=4)  # 월~금 5일
     resp = client.post(
         "/leave/request",
         data={"start_date": req1_start.isoformat(), "end_date": req1_end.isoformat()},
@@ -99,9 +100,9 @@ def test_full_scenario_request_approve_reject_and_balance_deduction(
     resp = client.get("/leave/history")
     assert "승인".encode("utf-8") in resp.data
 
-    # 7) 두 번째 신청(2일) 후 담당자가 반려 -> 차감 없어야 한다
-    req2_start = TODAY + timedelta(days=20)
-    req2_end = TODAY + timedelta(days=21)  # 2일
+    # 7) 두 번째 신청(2일, 평일) 후 담당자가 반려 -> 차감 없어야 한다
+    req2_start = _next_monday_on_or_after(TODAY + timedelta(days=20))
+    req2_end = req2_start + timedelta(days=1)  # 월~화 2일
     resp = client.post(
         "/leave/request",
         data={"start_date": req2_start.isoformat(), "end_date": req2_end.isoformat()},
@@ -144,7 +145,7 @@ def test_request_exceeding_balance_is_rejected_at_submission_with_no_record_crea
         "/leave/request",
         data={
             "start_date": (TODAY + timedelta(days=1)).isoformat(),
-            "end_date": (TODAY + timedelta(days=10)).isoformat(),  # 10일 > 잔여 5일
+            "end_date": (TODAY + timedelta(days=30)).isoformat(),  # 평일만 세어도 잔여 5일 초과
         },
         follow_redirects=False,
     )
@@ -164,8 +165,8 @@ def test_self_approval_is_blocked_with_flash_message_and_ui_hides_buttons(
     )
 
     login_as(applicant)
-    req_start = TODAY + timedelta(days=5)
-    req_end = TODAY + timedelta(days=6)
+    req_start = _next_monday_on_or_after(TODAY + timedelta(days=5))
+    req_end = req_start + timedelta(days=1)  # 월~화 평일
     client.post(
         "/leave/request",
         data={"start_date": req_start.isoformat(), "end_date": req_end.isoformat()},

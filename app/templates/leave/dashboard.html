@@ -3,21 +3,149 @@
 {% block content %}
 <div class="page-header">
     <h2>{{ employee.name }}님의 휴가 현황</h2>
-    <a class="btn btn-primary" href="{{ url_for('leave.request_leave') }}">+ 휴가 신청</a>
+    <button type="button" class="btn btn-primary" data-open-request>+ 휴가 신청</button>
 </div>
 
 <div class="summary-grid">
-    {% for grant_type, data in summary.items() %}
+    {% set annual = summary.get('연차') %}
     <div class="summary-card">
-        <h3>{{ grant_type }}</h3>
+        <h3>연차</h3>
+        {% if annual %}
         <dl>
-            <dt>부여</dt><dd>{{ data.granted }}일</dd>
-            <dt>사용</dt><dd>{{ data.used }}일</dd>
-            <dt>잔여</dt><dd class="remaining">{{ data.remaining }}일</dd>
+            <dt>부여</dt><dd>{{ annual.granted }}일</dd>
+            <dt>사용</dt><dd>{{ annual.used }}일</dd>
+            <dt>잔여</dt><dd class="remaining">{{ annual.remaining }}일</dd>
         </dl>
+        {% set pct = ((annual.used / annual.granted * 100) if annual.granted else 0) %}
+        <div class="meter"><i style="width: {{ pct }}%"></i></div>
+        <p class="hint">{{ annual.granted }}일 중 {{ annual.used }}일 사용 ({{ pct|round(0, 'floor')|int }}%)</p>
+        {% else %}
+        <p class="empty-row">보유 중인 연차가 없습니다.</p>
+        {% endif %}
     </div>
-    {% else %}
-    <p class="empty-row">보유 중인 유효한 휴가 항목이 없습니다.</p>
-    {% endfor %}
+
+    {% set tenure = summary.get('근속특별휴가') %}
+    <div class="summary-card">
+        <h3>근속 특별휴가</h3>
+        {% if tenure %}
+        <dl>
+            <dt>부여</dt><dd>{{ tenure.granted }}일</dd>
+            <dt>사용</dt><dd>{{ tenure.used }}일</dd>
+            <dt>잔여</dt><dd class="remaining">{{ tenure.remaining }}일</dd>
+        </dl>
+        {% elif next_milestone %}
+        <p class="big-stat">0일</p>
+        <p class="hint">
+            {{ next_milestone.milestone_years }}년 근속까지 D-{{ (next_milestone.anniversary_date - today).days }}
+            <br>{{ next_milestone.anniversary_date }}에 {{ next_milestone.granted_days }}일 발생 예정
+        </p>
+        {% else %}
+        <p class="empty-row">근속특별휴가 정보가 없습니다.</p>
+        {% endif %}
+    </div>
+
+    <div class="summary-card expire-card">
+        <h3>만료 임박 (90일 이내)</h3>
+        {% if expiring_grants %}
+        {% for g in expiring_grants %}
+        <p class="expire-item">
+            <strong>{{ g.granted_days - g.used_days }}일</strong> — {{ g.grant_type }}, {{ g.expire_date }} 소멸 예정
+        </p>
+        {% endfor %}
+        {% else %}
+        <p class="empty-row">90일 이내 만료 예정 항목이 없습니다.</p>
+        {% endif %}
+    </div>
 </div>
+
+<div class="dashboard-workspace">
+    <div class="calendar-panel table-wrap">
+        <div class="calendar-head">
+            <a class="btn btn-small" href="{{ url_for('leave.dashboard', year=prev_year, month=prev_month) }}">‹ 이전달</a>
+            <h2>{{ year }}년 {{ month }}월</h2>
+            <a class="btn btn-small" href="{{ url_for('leave.dashboard', year=next_year, month=next_month) }}">다음달 ›</a>
+        </div>
+        <table class="calendar-table">
+            <thead>
+                <tr>
+                    <th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for week in calendar_weeks %}
+                <tr>
+                    {% for day in week %}
+                    <td class="cal-day
+                        {{ 'other-month' if not day.in_month }}
+                        {{ 'weekend' if day.is_weekend }}
+                        {{ 'today' if day.is_today }}
+                        {{ 'selected' if day.is_selected }}"
+                        data-date="{{ day.date.isoformat() }}">
+                        <a class="cal-day-link" href="{{ url_for('leave.dashboard', year=year, month=month, selected=day.date.isoformat()) }}">{{ day.date.day }}</a>
+                        {% for r in day.own %}
+                        <div class="cal-event mine">{{ r.kind }} {{ r.unit_label }}{% if r.status == '신청' %} (대기){% endif %}</div>
+                        {% endfor %}
+                        {% for name in day.colleagues %}
+                        <div class="cal-event team">{{ name }}</div>
+                        {% endfor %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="hint" style="padding:12px 16px 0;">날짜를 더블클릭하면 그 날짜로 바로 신청할 수 있습니다. 동료는 이름만 표시되고 휴가 종류는 보이지 않습니다.</p>
+    </div>
+
+    <div class="side">
+        {% if selected_day_info %}
+        <div class="panel">
+            <h3>{{ selected_day_info.date }}</h3>
+            {% if selected_day_info.own %}
+            {% for r in selected_day_info.own %}
+            <p>
+                {{ r.kind }} · {{ r.unit_label }}
+                <span class="badge {% if r.status == '신청' %}badge-pending{% elif r.status == '승인' %}badge-active{% else %}badge-rejected{% endif %}">{{ r.status }}</span>
+            </p>
+            {% endfor %}
+            {% else %}
+            <p class="hint">본인 일정이 없습니다.</p>
+            {% endif %}
+            {% if selected_day_info.colleagues %}
+            <p class="hint">부재: {{ selected_day_info.colleagues|join(', ') }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="panel">
+            <h3>다가오는 휴가</h3>
+            {% for r in upcoming %}
+            <p>
+                {{ r.start_date }} ~ {{ r.end_date }} ({{ r.days_used }}일)
+                <span class="badge {% if r.status == '신청' %}badge-pending{% else %}badge-active{% endif %}">{{ r.status }}</span>
+            </p>
+            {% else %}
+            <p class="hint">예정된 휴가가 없습니다.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<dialog id="requestDialog" class="request-dialog">
+    <form method="post" action="{{ url_for('leave.request_leave') }}" id="requestForm">
+        <div class="request-dialog-head">
+            <h2>휴가 신청</h2>
+            <button type="button" class="dialog-close" data-close-request aria-label="닫기">×</button>
+        </div>
+        <div class="request-dialog-body">
+            {% include "leave/_request_dialog_content.html" %}
+        </div>
+        <div class="form-actions" style="padding:0 20px 20px;">
+            <button type="button" class="btn" data-close-request>취소</button>
+            <button type="submit" class="btn btn-primary" id="submitRequestBtn">신청</button>
+        </div>
+    </form>
+</dialog>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

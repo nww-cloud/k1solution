@@ -1,10 +1,20 @@
 import os
 import tempfile
+from datetime import timedelta
 
 import pytest
 
 from app import create_app
 from app.extensions import db as _db
+
+
+def next_monday_on_or_after(d):
+    """d가 평일이면 그대로, 주말이면 다음 월요일을 반환한다.
+
+    휴가 신청은 주말을 제외하고 계산하므로, date.today() 기준 상대 날짜를 쓰는
+    테스트가 실행 요일에 따라 깨지지 않도록 평일 기준점을 맞출 때 사용한다.
+    """
+    return d + timedelta(days=(7 - d.weekday()) % 7)
 
 
 @pytest.fixture
