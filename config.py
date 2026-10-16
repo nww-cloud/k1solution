@@ -5,9 +5,16 @@ INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
 
 
 def _normalize_database_url(url):
-    """Render/Heroku 등이 주는 'postgres://'를 SQLAlchemy가 요구하는 'postgresql://'로 보정."""
-    if url and url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql://", 1)
+    """Render/Heroku 등이 주는 'postgres://'를 SQLAlchemy용 URL로 보정하고, 드라이버를 psycopg2로 명시한다.
+
+    드라이버를 생략하면 SQLAlchemy 버전에 따라 기본 드라이버(psycopg2 / psycopg3)가 달라져
+    배포 때 ModuleNotFoundError가 날 수 있으므로 항상 명시한다.
+    """
+    if not url:
+        return url
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
     return url
 
 
