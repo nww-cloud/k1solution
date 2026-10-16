@@ -22,10 +22,17 @@ COLUMN_MIGRATIONS = [
 ]
 
 
+def _limit_lock_wait(conn):
+    """Postgres에서 다른 프로세스가 쥔 잠금을 기다리며 부팅이 멈추지 않도록 대기 시간을 제한한다."""
+    if conn.dialect.name == "postgresql":
+        conn.execute(text("SET lock_timeout = '5s'"))
+
+
 def _find_missing_columns(engine):
     """실제 DB를 조회해 누락된 (테이블, 컬럼, DDL) 목록을 반환한다. 조회 커넥션은 반환 전에 닫힌다."""
     missing = []
     with engine.connect() as conn:
+        _limit_lock_wait(conn)
         inspector = inspect(conn)
         existing_tables = set(inspector.get_table_names())
         existing_columns = {
@@ -43,10 +50,14 @@ def _find_missing_columns(engine):
 
 def ensure_schema(db):
     """COLUMN_MIGRATIONS에 정의된 컬럼이 없으면 추가한다. 이미 있으면 아무 것도 하지 않는다."""
-    missing = _find_missing_columns(db.engine)
-    if not missing:
-        return
+    try:
+        missing = _find_missing_columns(db.engine)
+        if not missing:
+            return
 
-    with db.engine.begin() as conn:
-        for table, column, ddl in missing:
-            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+        with db.engine.begin() as conn:
+            _limit_lock_wait(conn)
+            for table, column, ddl in missing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+    except Exception as exc:  # noqa: BLE001 - 마이그레이션 실패가 앱 부팅 자체를 막으면 안 된다
+        print(f"[migrations] 스키마 보강 실패(다음 부팅 때 재시도): {exc}", flush=True)
