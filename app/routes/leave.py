@@ -254,6 +254,14 @@ def request_preview():
         return jsonify({"errors": ["날짜를 확인해주세요."]}), 400
 
     result = evaluate_leave_request(employee, kind, start_date, end_date, unit)
+
+    colleague_names = []
+    if employee.department:
+        items = get_department_absences(
+            employee.department, start_date, end_date, exclude_emp_id=employee.emp_id
+        )
+        colleague_names = sorted({item["name"] for item in items})
+
     return jsonify(
         {
             "valid_dates": [d.isoformat() for d in result["valid_dates"]],
@@ -261,8 +269,59 @@ def request_preview():
             "remaining_before": result["remaining_before"],
             "remaining_after": result["remaining_after"],
             "errors": result["errors"],
+            "colleague_absences": colleague_names,
         }
     )
+
+
+@leave_bp.route("/leave/calendar-data")
+def calendar_data():
+    """신청 다이얼로그의 미니 달력이 월 이동 시 호출하는 본인/동료 일정 JSON."""
+    employee = get_current_employee()
+    if not employee:
+        return jsonify({"error": "로그인이 필요합니다."}), 401
+
+    try:
+        year = int(request.args["year"])
+        month = int(request.args["month"])
+        date(year, month, 1)
+    except (KeyError, ValueError):
+        return jsonify({"error": "year/month가 올바르지 않습니다."}), 400
+
+    month_start, month_end = _month_bounds(year, month)
+
+    own_requests = (
+        LeaveRequest.query.filter_by(emp_id=employee.emp_id)
+        .filter(LeaveRequest.status.in_(ACTIVE_STATUSES))
+        .filter(LeaveRequest.start_date <= month_end, LeaveRequest.end_date >= month_start)
+        .all()
+    )
+    colleague_absences = (
+        get_department_absences(
+            employee.department, month_start, month_end, exclude_emp_id=employee.emp_id
+        )
+        if employee.department
+        else []
+    )
+
+    days = {}
+    d = month_start
+    while d <= month_end:
+        own_here = [r for r in own_requests if r.start_date <= d <= r.end_date]
+        colleagues_here = sorted(
+            {item["name"] for item in colleague_absences if item["start_date"] <= d <= item["end_date"]}
+        )
+        if own_here or colleagues_here:
+            days[d.isoformat()] = {
+                "own": [
+                    {"kind": r.kind, "unit_label": r.unit_label, "status": r.status}
+                    for r in own_here
+                ],
+                "colleagues": colleagues_here,
+            }
+        d += timedelta(days=1)
+
+    return jsonify({"days": days})
 
 
 @leave_bp.route("/leave/history")

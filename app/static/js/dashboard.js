@@ -1,6 +1,6 @@
 // 대시보드 캘린더 + 휴가 신청 다이얼로그 상호작용.
 //
-// 날짜 선택 방식(목업 02/03 문서 기준, 드래그 제외):
+// 날짜 선택 방식(목업 02/03 문서 기준, 마우스 드래그만 제외):
 // - 상태는 하나(activeField: 'start'|'end')이고 진입구가 셋이다.
 //   1) "연속 휴가로 선택" 버튼  2) 종료일 입력칸 클릭/포커스  3) 미니 달력 클릭
 // - 시작일 선택 중(기본): 달력 클릭 -> 그 하루로 이동(항상 단일 선택으로 초기화)
@@ -9,9 +9,8 @@
 // - 반차 등 부분 단위는 하루만 가능 -> 범위 선택 버튼 비활성, 달력 클릭도 항상 단일 선택
 // - 입력칸에 직접 타이핑하면 활성 칸은 시작일로 복귀
 //
-// 서버 렌더링을 기본으로 하고, 이 스크립트는 다이얼로그 열기/닫기, 날짜 선택,
-// 신청 미리보기(실시간 일수·잔여 계산)를 보강한다. JS가 꺼져 있어도
-// /leave/request 페이지에서 날짜 입력창으로 직접 신청할 수 있다.
+// 미니 달력은 월이 바뀔 때마다 /leave/calendar-data 를 호출해 본인 일정과
+// 같은 부서 동료 부재를 날짜 칸에 함께 표시한다.
 (function () {
     "use strict";
 
@@ -29,25 +28,34 @@
     function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
     function isWeekend(d) { var w = d.getDay(); return w === 0 || w === 6; }
     function sameDate(a, b) { return !!a && !!b && formatDate(a) === formatDate(b); }
+    function escapeHtml(s) {
+        var div = document.createElement("div");
+        div.textContent = s;
+        return div.innerHTML;
+    }
 
     onReady(function () {
         var dialog = document.getElementById("requestDialog");
         var startEl = document.getElementById("start_date");
         var endEl = document.getElementById("end_date");
         var kindEl = document.getElementById("kind");
-        var unitSelect = document.getElementById("unit_select");
+        var unitButtons = Array.prototype.slice.call(document.querySelectorAll(".dash-unit-btn"));
         var unitHidden = document.getElementById("unit_hidden");
         var unitLabelHidden = document.getElementById("unit_label_hidden");
-        var pickerBadge = document.getElementById("pickerBadge");
+        var startBadge = document.getElementById("startBadge");
+        var endBadge = document.getElementById("endBadge");
         var rangeModeBtn = document.getElementById("rangeModeBtn");
+        var absenceBanner = document.getElementById("absenceBanner");
         var miniMonthLabel = document.getElementById("miniMonthLabel");
         var miniCalBody = document.getElementById("miniCalBody");
         var miniPrev = document.getElementById("miniPrev");
         var miniNext = document.getElementById("miniNext");
+        var miniToday = document.getElementById("miniToday");
 
         if (!startEl || !endEl) return; // 신청 폼 자체가 없는 페이지
 
         var hasMiniCalendar = !!miniCalBody;
+        var monthEventCache = {}; // "YYYY-M" -> {days: {...}}
 
         var picker = {
             viewYear: new Date().getFullYear(),
@@ -56,9 +64,8 @@
         };
 
         function currentUnit() {
-            if (!unitSelect) return 1.0;
-            var opt = unitSelect.options[unitSelect.selectedIndex];
-            return parseFloat(opt.getAttribute("data-unit"));
+            var active = unitButtons.filter(function (b) { return b.classList.contains("dash-active"); })[0];
+            return active ? parseFloat(active.getAttribute("data-unit")) : 1.0;
         }
 
         function getStartEnd() {
@@ -90,52 +97,77 @@
                     rangeModeBtn.classList.remove("dash-active");
                 }
             }
-            if (pickerBadge) {
-                pickerBadge.textContent = picker.activeField === "end" ? "종료일 선택 중" : "시작일 선택 중";
-                pickerBadge.classList.toggle("dash-picking-end", picker.activeField === "end");
-            }
+            if (startBadge) startBadge.classList.toggle("dash-hidden", picker.activeField !== "start");
+            if (endBadge) endBadge.classList.toggle("dash-hidden", picker.activeField !== "end");
+        }
+
+        function monthKey(y, m) { return y + "-" + m; }
+
+        function fetchMonthEvents(y, m) {
+            var key = monthKey(y, m);
+            if (monthEventCache[key]) return Promise.resolve(monthEventCache[key]);
+            return fetch("/leave/calendar-data?year=" + y + "&month=" + (m + 1))
+                .then(function (r) { return r.ok ? r.json() : { days: {} }; })
+                .then(function (data) {
+                    monthEventCache[key] = data.days || {};
+                    return monthEventCache[key];
+                })
+                .catch(function () { return {}; });
         }
 
         function renderMiniCalendar() {
             if (!hasMiniCalendar) return;
             var y = picker.viewYear, m = picker.viewMonth;
-            if (miniMonthLabel) miniMonthLabel.textContent = y + "." + pad(m + 1);
+            if (miniMonthLabel) miniMonthLabel.textContent = y + "년 " + (m + 1) + "월";
 
-            var firstOfMonth = new Date(y, m, 1);
-            var gridStart = addDays(firstOfMonth, -firstOfMonth.getDay());
-            var today = new Date();
-            var cur = getStartEnd();
+            fetchMonthEvents(y, m).then(function (events) {
+                var firstOfMonth = new Date(y, m, 1);
+                var gridStart = addDays(firstOfMonth, -firstOfMonth.getDay());
+                var today = new Date();
+                var cur = getStartEnd();
 
-            var html = "";
-            for (var week = 0; week < 6; week++) {
-                html += "<tr>";
-                for (var dow = 0; dow < 7; dow++) {
-                    var d = addDays(gridStart, week * 7 + dow);
-                    var classes = ["dash-mini-day"];
-                    if (d.getMonth() !== m) classes.push("dash-other-month");
-                    if (isWeekend(d)) classes.push("dash-weekend");
-                    if (sameDate(d, today)) classes.push("dash-today");
-                    if (cur.start && cur.end && d >= cur.start && d <= cur.end) classes.push("dash-in-range");
-                    if (sameDate(d, cur.start)) classes.push("dash-range-start");
-                    if (sameDate(d, cur.end)) classes.push("dash-range-end");
-                    html += '<td class="' + classes.join(" ") + '" data-date="' + formatDate(d) + '">' + d.getDate() + "</td>";
+                var html = "";
+                for (var week = 0; week < 6; week++) {
+                    html += "<tr>";
+                    for (var dow = 0; dow < 7; dow++) {
+                        var d = addDays(gridStart, week * 7 + dow);
+                        var dateStr = formatDate(d);
+                        var classes = ["dash-mini-day"];
+                        if (d.getMonth() !== m) classes.push("dash-other-month");
+                        if (isWeekend(d)) classes.push("dash-weekend");
+                        if (sameDate(d, today)) classes.push("dash-today");
+                        if (cur.start && cur.end && d >= cur.start && d <= cur.end) classes.push("dash-in-range");
+                        if (sameDate(d, cur.start)) classes.push("dash-range-start");
+                        if (sameDate(d, cur.end)) classes.push("dash-range-end");
+
+                        var inner = '<span class="dash-mini-day-num">' + d.getDate() + "</span>";
+                        var dayEvents = events[dateStr];
+                        if (dayEvents) {
+                            (dayEvents.own || []).forEach(function (ev) {
+                                inner += '<span class="dash-mini-event dash-mine">내 휴가 · ' + escapeHtml(ev.unit_label) + "</span>";
+                            });
+                            (dayEvents.colleagues || []).forEach(function (name) {
+                                inner += '<span class="dash-mini-event dash-team">' + escapeHtml(name) + "</span>";
+                            });
+                        }
+
+                        html += '<td class="' + classes.join(" ") + '" data-date="' + dateStr + '">' + inner + "</td>";
+                    }
+                    html += "</tr>";
                 }
-                html += "</tr>";
-            }
-            miniCalBody.innerHTML = html;
+                miniCalBody.innerHTML = html;
+            });
         }
 
         function onMiniDayClick(dateStr) {
             var clicked = parseDate(dateStr);
 
             if (currentUnit() !== 1.0 || picker.activeField === "start") {
-                // 부분 단위이거나 "시작일 선택 중" -> 그 하루로 이동(단일 선택으로 초기화)
                 setStartEnd(clicked, clicked);
                 onDatesChanged();
                 return;
             }
 
-            // 종료일 선택 중 -> 기간 확정 (역행 선택 허용)
             var cur = getStartEnd();
             var s = cur.start || clicked;
             if (clicked < s) {
@@ -152,24 +184,26 @@
             updatePreview();
         }
 
+        function goToMonth(y, m) {
+            if (m < 0) { m = 11; y -= 1; }
+            if (m > 11) { m = 0; y += 1; }
+            picker.viewYear = y;
+            picker.viewMonth = m;
+            renderMiniCalendar();
+        }
+
         if (hasMiniCalendar) {
             miniCalBody.addEventListener("click", function (e) {
                 var td = e.target.closest(".dash-mini-day");
                 if (!td) return;
                 onMiniDayClick(td.getAttribute("data-date"));
             });
-            if (miniPrev) {
-                miniPrev.addEventListener("click", function () {
-                    picker.viewMonth -= 1;
-                    if (picker.viewMonth < 0) { picker.viewMonth = 11; picker.viewYear -= 1; }
-                    renderMiniCalendar();
-                });
-            }
-            if (miniNext) {
-                miniNext.addEventListener("click", function () {
-                    picker.viewMonth += 1;
-                    if (picker.viewMonth > 11) { picker.viewMonth = 0; picker.viewYear += 1; }
-                    renderMiniCalendar();
+            if (miniPrev) miniPrev.addEventListener("click", function () { goToMonth(picker.viewYear, picker.viewMonth - 1); });
+            if (miniNext) miniNext.addEventListener("click", function () { goToMonth(picker.viewYear, picker.viewMonth + 1); });
+            if (miniToday) {
+                miniToday.addEventListener("click", function () {
+                    var t = new Date();
+                    goToMonth(t.getFullYear(), t.getMonth());
                 });
             }
             if (rangeModeBtn) {
@@ -193,6 +227,15 @@
             el.addEventListener("change", function () {
                 picker.activeField = "start";
                 onDatesChanged();
+            });
+        });
+
+        // ---- 사용 단위 버튼 ----
+        unitButtons.forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                unitButtons.forEach(function (b) { b.classList.remove("dash-active"); });
+                btn.classList.add("dash-active");
+                updatePreview();
             });
         });
 
@@ -244,11 +287,11 @@
         // ---- 단위 변경: 부분 단위는 종료일을 시작일에 맞추고 읽기 전용으로 ----
 
         function syncUnitHiddenFields() {
-            if (!unitSelect) return;
-            var opt = unitSelect.options[unitSelect.selectedIndex];
-            var unitValue = parseFloat(opt.getAttribute("data-unit"));
+            var active = unitButtons.filter(function (b) { return b.classList.contains("dash-active"); })[0];
+            if (!active) return;
+            var unitValue = parseFloat(active.getAttribute("data-unit"));
             unitHidden.value = unitValue;
-            unitLabelHidden.value = opt.getAttribute("data-label");
+            unitLabelHidden.value = active.getAttribute("data-label");
 
             if (unitValue !== 1.0) {
                 endEl.value = startEl.value;
@@ -267,7 +310,8 @@
             renderMiniCalendar();
 
             var previewTotal = document.getElementById("previewTotalDays");
-            var previewRemaining = document.getElementById("previewRemainingAfter");
+            var previewBefore = document.getElementById("previewRemainingBefore");
+            var previewAfter = document.getElementById("previewRemainingAfter");
             var previewCount = document.getElementById("previewDateCount");
             var errorsEl = document.getElementById("previewErrors");
             var submitBtn = document.getElementById("submitRequestBtn");
@@ -290,9 +334,20 @@
                 if (previewCount) {
                     previewCount.textContent = (data.valid_dates ? data.valid_dates.length : 0) + "건";
                 }
-                if (previewRemaining) {
-                    previewRemaining.textContent = data.remaining_after + "일";
-                    previewRemaining.classList.toggle("dash-bad", data.remaining_after < 0);
+                if (previewBefore) previewBefore.textContent = data.remaining_before + "일";
+                if (previewAfter) {
+                    previewAfter.textContent = data.remaining_after + "일";
+                    previewAfter.classList.toggle("dash-bad", data.remaining_after < 0);
+                }
+                if (absenceBanner) {
+                    var names = data.colleague_absences || [];
+                    if (names.length) {
+                        absenceBanner.textContent = "선택 기간 중 부서 부재: " + names.join(", ");
+                        absenceBanner.classList.remove("dash-hidden");
+                    } else {
+                        absenceBanner.textContent = "";
+                        absenceBanner.classList.add("dash-hidden");
+                    }
                 }
                 if (errorsEl) {
                     errorsEl.innerHTML = "";
@@ -308,9 +363,7 @@
             }
         }
 
-        [kindEl, unitSelect].forEach(function (el) {
-            if (el) el.addEventListener("change", updatePreview);
-        });
+        if (kindEl) kindEl.addEventListener("change", updatePreview);
 
         // 대시보드 다이얼로그가 아닌 단독 신청 페이지에서는 처음부터 초기화한다.
         if (!dialog) {

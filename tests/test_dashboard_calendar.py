@@ -180,3 +180,76 @@ def test_leave_request_without_end_date_shows_friendly_error_not_500(
     assert resp.status_code == 200
     assert "시작일과 종료일".encode("utf-8") in resp.data
     assert LeaveRequest.query.count() == 0
+
+
+# ---------------------------------------------------------------------------
+# 신청 다이얼로그 미니 달력용 데이터(/leave/calendar-data) 및 동료 부재 미리보기
+# ---------------------------------------------------------------------------
+
+
+def test_calendar_data_returns_own_and_colleague_events_for_month(
+    make_employee, make_grant, client, login_as
+):
+    viewer = make_employee(hire_date=date(2020, 1, 1), name="조회자3", department="개발팀")
+    colleague = make_employee(hire_date=date(2020, 1, 1), name="동료이", department="개발팀")
+    make_grant(
+        colleague, grant_date=date(TODAY.year, 1, 1), expire_date=date(TODAY.year, 12, 31),
+        granted_days=15, used_days=0,
+    )
+    target_day = next_monday_on_or_after(TODAY + timedelta(days=3))
+
+    login_as(colleague)
+    client.post(
+        "/leave/request",
+        data={"start_date": target_day.isoformat(), "end_date": target_day.isoformat()},
+        follow_redirects=False,
+    )
+
+    login_as(viewer)
+    resp = client.get(f"/leave/calendar-data?year={target_day.year}&month={target_day.month}")
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    day_entry = data["days"][target_day.isoformat()]
+    assert day_entry["colleagues"] == ["동료이"]
+    assert day_entry["own"] == []
+
+
+def test_calendar_data_requires_login(client):
+    resp = client.get("/leave/calendar-data?year=2026&month=1")
+    assert resp.status_code == 401
+
+
+def test_preview_includes_department_colleague_absences(
+    make_employee, make_grant, client, login_as
+):
+    viewer = make_employee(hire_date=date(2020, 1, 1), name="조회자4", department="개발팀")
+    colleague = make_employee(hire_date=date(2020, 1, 1), name="동료박", department="개발팀")
+    make_grant(
+        viewer, grant_date=date(TODAY.year, 1, 1), expire_date=date(TODAY.year, 12, 31),
+        granted_days=15, used_days=0,
+    )
+    make_grant(
+        colleague, grant_date=date(TODAY.year, 1, 1), expire_date=date(TODAY.year, 12, 31),
+        granted_days=15, used_days=0,
+    )
+    target_day = next_monday_on_or_after(TODAY + timedelta(days=3))
+
+    login_as(colleague)
+    client.post(
+        "/leave/request",
+        data={"start_date": target_day.isoformat(), "end_date": target_day.isoformat()},
+        follow_redirects=False,
+    )
+
+    login_as(viewer)
+    resp = client.post(
+        "/leave/request/preview",
+        data=json.dumps(
+            {"start_date": target_day.isoformat(), "end_date": target_day.isoformat(), "kind": "연차", "unit": 1.0}
+        ),
+        content_type="application/json",
+    )
+
+    data = resp.get_json()
+    assert data["colleague_absences"] == ["동료박"]

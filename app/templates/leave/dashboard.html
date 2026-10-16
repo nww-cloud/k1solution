@@ -137,29 +137,33 @@
     <form method="post" action="{{ url_for('leave.request_leave') }}" id="requestForm">
         <div class="dash-request-layout">
             <div class="dash-request-calendar">
-                <div class="dash-dialog-title-row">
-                    <h2>휴가 신청</h2>
-                    <button type="button" class="dash-dialog-close" data-close-request aria-label="닫기">×</button>
+                <p class="dash-eyebrow">SELECT DATES</p>
+                <div class="dash-mini-cal-head-row">
+                    <h2 class="dash-mini-month-title" id="miniMonthLabel"></h2>
+                    <div class="dash-mini-nav">
+                        <button type="button" class="dash-cal-nav" id="miniPrev" aria-label="이전달">‹</button>
+                        <button type="button" class="dash-today-btn" id="miniToday">오늘</button>
+                        <button type="button" class="dash-cal-nav" id="miniNext" aria-label="다음달">›</button>
+                    </div>
                 </div>
-                <div class="dash-picker-status">
-                    <span class="dash-picker-badge" id="pickerBadge">시작일 선택 중</span>
-                    <button type="button" class="dash-range-btn" id="rangeModeBtn">연속 휴가로 선택</button>
-                </div>
-                <div class="dash-mini-cal-head">
-                    <button type="button" class="dash-cal-nav" id="miniPrev" aria-label="이전달">‹</button>
-                    <span id="miniMonthLabel"></span>
-                    <button type="button" class="dash-cal-nav" id="miniNext" aria-label="다음달">›</button>
-                </div>
+                <p class="dash-mini-cal-hint">날짜를 클릭하면 그 하루가 선택됩니다. 연속 휴가는 종료일 칸을 누르거나 아래 버튼으로 고르세요.</p>
                 <table class="dash-mini-cal-table">
                     <thead><tr><th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th></tr></thead>
                     <tbody id="miniCalBody"></tbody>
                 </table>
             </div>
             <div class="dash-request-form-col">
+                <div class="dash-dialog-title-row">
+                    <div>
+                        <p class="dash-eyebrow">LEAVE REQUEST</p>
+                        <h2>휴가 신청</h2>
+                    </div>
+                    <button type="button" class="dash-dialog-close" data-close-request aria-label="닫기">×</button>
+                </div>
                 {% include "leave/_request_dialog_content.html" %}
                 <div class="dash-form-actions">
-                    <button type="button" class="dash-btn" data-close-request>취소</button>
-                    <button type="submit" class="dash-btn dash-btn-primary" id="submitRequestBtn">신청</button>
+                    <button type="button" class="dash-btn" data-close-request>닫기</button>
+                    <button type="submit" class="dash-btn dash-btn-primary" id="submitRequestBtn">기간 신청 확정</button>
                 </div>
             </div>
         </div>

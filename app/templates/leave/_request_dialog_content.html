@@ -1,3 +1,34 @@
+<div class="dash-summary-row" id="requestPreview">
+    <div>
+        <span class="dash-summary-label">신청 휴가</span>
+        <div class="dash-summary-value">총 <span id="previewTotalDays">-</span></div>
+        <span class="dash-summary-count" id="previewDateCount"></span>
+    </div>
+    <div>
+        <span class="dash-summary-label">잔여 연차</span>
+        <div class="dash-summary-value">
+            <span id="previewRemainingBefore" class="dash-arrow-from">-</span>
+            <span class="dash-arrow-from">→</span>
+            <span id="previewRemainingAfter">-</span>
+        </div>
+        <span class="dash-summary-count">확정 후 잔여</span>
+    </div>
+</div>
+
+<div class="dash-absence-banner dash-hidden" id="absenceBanner"></div>
+
+<div class="dash-date-range-fields">
+    <div class="dash-field">
+        <label for="start_date">시작일 <span class="dash-picker-badge" id="startBadge">선택 중</span></label>
+        <input type="date" id="start_date" name="start_date" value="{{ default_date or '' }}" required>
+    </div>
+    <div class="dash-field">
+        <label for="end_date">종료일 <span class="dash-picker-badge dash-hidden" id="endBadge">선택 중</span></label>
+        <input type="date" id="end_date" name="end_date" value="{{ default_date or '' }}" required>
+    </div>
+</div>
+<button type="button" class="dash-range-btn" id="rangeModeBtn">연속 휴가로 선택</button>
+
 <div class="dash-field">
     <label for="kind">휴가 종류 *</label>
     <select id="kind" name="kind">
@@ -5,36 +36,16 @@
         <option value="근속특별휴가">근속 특별휴가</option>
     </select>
 </div>
-<div class="dash-field dash-date-range-fields">
-    <div>
-        <label for="start_date">시작일 *</label>
-        <input type="date" id="start_date" name="start_date" value="{{ default_date or '' }}" required>
-    </div>
-    <div>
-        <label for="end_date">종료일 *</label>
-        <input type="date" id="end_date" name="end_date" value="{{ default_date or '' }}" required>
-    </div>
-</div>
+
 <div class="dash-field">
-    <label for="unit_select">사용 단위 *</label>
-    <select id="unit_select">
+    <label>사용 단위 *</label>
+    <div class="dash-unit-grid" id="unitButtons">
         {% for unit_value, label in unit_choices %}
-        <option value="{{ loop.index0 }}" data-unit="{{ unit_value }}" data-label="{{ label }}" {% if loop.first %}selected{% endif %}>{{ label }}</option>
+        <button type="button" class="dash-unit-btn {{ 'dash-active' if loop.first }}" data-unit="{{ unit_value }}" data-label="{{ label }}">{{ label }}</button>
         {% endfor %}
-    </select>
+    </div>
     <input type="hidden" id="unit_hidden" name="unit" value="1.0">
     <input type="hidden" id="unit_label_hidden" name="unit_label" value="종일">
 </div>
 
-<div class="dash-summary-row" id="requestPreview">
-    <div>
-        <span class="dash-summary-label">신청 일수</span>
-        <span class="dash-summary-value" id="previewTotalDays">-</span>
-        <span class="dash-summary-count" id="previewDateCount"></span>
-    </div>
-    <div>
-        <span class="dash-summary-label">확정 후 잔여</span>
-        <span class="dash-summary-value" id="previewRemainingAfter">-</span>
-    </div>
-</div>
 <ul class="dash-error-list" id="previewErrors"></ul>
